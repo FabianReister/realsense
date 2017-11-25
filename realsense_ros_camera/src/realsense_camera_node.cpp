@@ -12,6 +12,7 @@
 #include <librealsense2/rsutil.h>
 #include <librealsense2/hpp/rs_processing.hpp>
 #include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/point_cloud2_iterator.h>
@@ -313,6 +314,8 @@ namespace realsense_ros_camera
 
                 if (_pointcloud)
                     _pointcloud_publisher = _node_handle.advertise<sensor_msgs::PointCloud2>("/camera/points", 1);
+		
+		_registered_depth_image_publisher = image_transport.advertise("/camera/depth/image_registered", 1);
             }
 
             if (true == _enable[INFRA1])
@@ -867,6 +870,61 @@ namespace realsense_ros_camera
             }
             // TODO: Publish Fisheye TF
         }
+        
+        //!
+        //! \brief publishs depth image from the same viewpoint as the color image
+        //!
+        void publishRegisteredDepth(const ros::Time& t){
+	  auto color_intrinsics = _stream_intrinsics[COLOR];
+            auto image_depth16 = reinterpret_cast<const uint16_t*>(_image[DEPTH].data);
+            auto depth_intrinsics = _stream_intrinsics[DEPTH];
+	        
+	    cv_bridge::CvImage depth_img;	    
+	    depth_img.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+	    depth_img.header.frame_id = _optical_frame_id[COLOR];
+	    depth_img.header.stamp = t;
+	    depth_img.image = cv::Mat1f(cv::Size(depth_intrinsics.width, depth_intrinsics.height),0);
+
+            float depth_point[3], color_point[3], color_pixel[2], scaled_depth;
+
+            // Fill the depth image fields
+            for (int y = 0; y < depth_intrinsics.height; ++y)
+            {
+                for (int x = 0; x < depth_intrinsics.width; ++x)
+                {
+                    scaled_depth = static_cast<float>(*image_depth16) * _depth_scale_meters;
+                    float depth_pixel[2] = {static_cast<float>(x), static_cast<float>(y)};
+		    		    
+                    rs2_deproject_pixel_to_point(depth_point, &depth_intrinsics, depth_pixel, scaled_depth);
+
+                    if (depth_point[2] <= 0.f || depth_point[2] > 5.f)
+                    {
+                        continue;
+                    }
+
+                    rs2_transform_point_to_point(color_point, &_depth2color_extrinsics, depth_point);
+                    rs2_project_point_to_pixel(color_pixel, &color_intrinsics, color_point);
+
+                    if (color_pixel[1] < 0.f || color_pixel[1] > color_intrinsics.height
+                        || color_pixel[0] < 0.f || color_pixel[0] > color_intrinsics.width)
+                    {
+			continue;
+                    }
+                    else
+                    {
+                        auto i = static_cast<int>(color_pixel[0]);
+                        auto j = static_cast<int>(color_pixel[1]);
+
+			// calculate the new depth for this viewpoint
+			auto depth = std::sqrt(std::pow(color_point[0], 2) + std::pow(color_point[1], 2) + std::pow(color_point[2], 2));
+                        
+			depth_img.image.at<float>(j,i) = depth;
+                    }		    
+                }
+            }            
+	    
+	    _registered_depth_image_publisher.publish(depth_img.toImageMsg());	  
+	}
 
         void publishPCTopic(const ros::Time& t)
         {
@@ -1078,6 +1136,10 @@ namespace realsense_ros_camera
                 image_publisher.publish(img);
                 ROS_DEBUG("%s stream published", rs2_stream_to_string(f.get_profile().stream_type()));
             }
+            
+            if(_registered_depth_image_publisher.getNumSubscribers()){
+	      publishRegisteredDepth(t);
+	    }
         }
 
         bool getEnabledProfile(const stream_index_pair& stream_index, rs2::stream_profile& profile)
@@ -1136,6 +1198,8 @@ namespace realsense_ros_camera
         bool _pointcloud;
         rs2::asynchronous_syncer _syncer;
         rs2_extrinsics _depth2color_extrinsics;
+	
+	image_transport::Publisher _registered_depth_image_publisher;
     };//end class
 
     PLUGINLIB_EXPORT_CLASS(realsense_ros_camera::RealSenseCameraNodelet, nodelet::Nodelet)
