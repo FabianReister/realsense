@@ -468,6 +468,11 @@ namespace realsense_ros_camera
                         ROS_DEBUG("publishPCTopic(...)");
                         publishPCTopic(t);
                     }
+
+                    if(_registered_depth_image_publisher.getNumSubscribers()){
+                        ROS_DEBUG("Publishing registered depth image");
+                        publishRegisteredDepth(t);
+                    }
                 };
 
                 // Streaming IMAGES
@@ -882,19 +887,23 @@ namespace realsense_ros_camera
           auto depth_intrinsics = _stream_intrinsics[DEPTH];
 
           cv_bridge::CvImage depth_img;
-          depth_img.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+          depth_img.encoding = sensor_msgs::image_encodings::TYPE_16UC1;
           depth_img.header.frame_id = _optical_frame_id[COLOR];
           depth_img.header.stamp = t;
-          depth_img.image = cv::Mat1f(
-              cv::Size(depth_intrinsics.width, depth_intrinsics.height), 0);
+          depth_img.image = cv::Mat_<uint16_t>(
+              cv::Size(color_intrinsics.width, color_intrinsics.height), 0);
 
           float depth_point[3], color_point[3], color_pixel[2], scaled_depth;
 
           // Fill the depth image fields
           for (int y = 0; y < depth_intrinsics.height; ++y) {
-            for (int x = 0; x < depth_intrinsics.width; ++x) {
+            for (int x = 0; x < depth_intrinsics.width; ++x, ++image_depth16) {
               scaled_depth =
                   static_cast<float>(*image_depth16) * _depth_scale_meters;
+
+              if(scaled_depth == 0)
+                  continue;
+
               float depth_pixel[2] = {static_cast<float>(x),
                                       static_cast<float>(y)};
 
@@ -920,11 +929,18 @@ namespace realsense_ros_camera
                 auto j = static_cast<int>(color_pixel[1]);
 
                 // calculate the new depth for this viewpoint
+                // FIXME update formula with focal length
                 auto depth = std::sqrt(std::pow(color_point[0], 2) +
                                        std::pow(color_point[1], 2) +
-                                       std::pow(color_point[2], 2));
+                                       std::pow(color_point[2], 2)) / _depth_scale_meters;
 
-                depth_img.image.at<float>(j, i) = depth;
+                auto& depth_val = depth_img.image.at<uint16_t>(j, i);
+
+
+                if(depth_val != 0)
+                    depth_val = std::min(depth_val, static_cast<uint16_t>(depth));
+                else
+                    depth_val = depth;
               }
             }
           }
@@ -1142,10 +1158,6 @@ namespace realsense_ros_camera
                 image_publisher.publish(img);
                 ROS_DEBUG("%s stream published", rs2_stream_to_string(f.get_profile().stream_type()));
             }
-
-            if(_registered_depth_image_publisher.getNumSubscribers()){
-          publishRegisteredDepth(t);
-        }
         }
 
         bool getEnabledProfile(const stream_index_pair& stream_index, rs2::stream_profile& profile)
@@ -1205,7 +1217,7 @@ namespace realsense_ros_camera
         rs2::asynchronous_syncer _syncer;
         rs2_extrinsics _depth2color_extrinsics;
 
-    image_transport::Publisher _registered_depth_image_publisher;
+        image_transport::Publisher _registered_depth_image_publisher;
     };//end class
 
     PLUGINLIB_EXPORT_CLASS(realsense_ros_camera::RealSenseCameraNodelet, nodelet::Nodelet)
