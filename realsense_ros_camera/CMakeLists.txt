@@ -12,6 +12,8 @@ find_package(catkin REQUIRED COMPONENTS
     tf
     )
 
+set(CMAKE_BUILD_TYPE Release)
+
 find_package(realsense2)
 if(NOT realsense2_FOUND)
     message(FATAL_ERROR "\n\n Intel RealSense SDK 2.0 is missing, please install it from https://github.com/IntelRealSense/librealsense/releases\n\n")
@@ -19,7 +21,7 @@ endif()
 
 if (CMAKE_BUILD_TYPE EQUAL "RELEASE")
     message(STATUS "Create Release Build.")
-    set(CMAKE_CXX_FLAGS "-O2 ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "-O3 ${CMAKE_CXX_FLAGS}")
 else()
     message(STATUS "Create Debug Build.")
 endif()

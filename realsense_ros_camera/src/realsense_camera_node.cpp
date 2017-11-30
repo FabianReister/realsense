@@ -469,7 +469,7 @@ namespace realsense_ros_camera
                         publishPCTopic(t);
                     }
 
-                    if(_registered_depth_image_publisher.getNumSubscribers()){
+                    if(_registered_depth_image_publisher.getNumSubscribers() && frame.get_profile().stream_type() == RS2_STREAM_DEPTH){
                         ROS_DEBUG("Publishing registered depth image");
                         publishRegisteredDepth(t);
                     }
@@ -882,6 +882,23 @@ namespace realsense_ros_camera
         //!
         void publishRegisteredDepth(const ros::Time &t) {
           auto color_intrinsics = _stream_intrinsics[COLOR];
+
+          // using full resolution depth image would result in a fairly sparse image
+          const size_t DEPTH_WIDTH = 320;
+          const size_t DEPTH_HEIGHT = 240;
+
+          const double BINNING_X = color_intrinsics.width / DEPTH_WIDTH;
+          const double BINNING_Y = color_intrinsics.height / DEPTH_HEIGHT;
+
+          // adjust intrinsic parameters
+          color_intrinsics.fx /= BINNING_X;
+          color_intrinsics.fy /= BINNING_Y;
+          color_intrinsics.ppx /= BINNING_X;
+          color_intrinsics.ppy /= BINNING_Y;
+
+          color_intrinsics.width = DEPTH_WIDTH;
+          color_intrinsics.height = DEPTH_HEIGHT;
+
           auto image_depth16 =
               reinterpret_cast<const uint16_t *>(_image[DEPTH].data);
           auto depth_intrinsics = _stream_intrinsics[DEPTH];
