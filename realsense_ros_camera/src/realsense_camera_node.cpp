@@ -315,7 +315,7 @@ namespace realsense_ros_camera
                 if (_pointcloud)
                     _pointcloud_publisher = _node_handle.advertise<sensor_msgs::PointCloud2>("/camera/points", 1);
 
-        _registered_depth_image_publisher = image_transport.advertise("/camera/depth/image_registered", 1);
+        _registered_depth_image_publisher = image_transport.advertise("/camera/color/depth_registered_rect", 1);
             }
 
             if (true == _enable[INFRA1])
@@ -469,7 +469,7 @@ namespace realsense_ros_camera
                         publishPCTopic(t);
                     }
 
-                    if(_registered_depth_image_publisher.getNumSubscribers() && frame.get_profile().stream_type() == RS2_STREAM_DEPTH){
+                    if(_registered_depth_image_publisher.getNumSubscribers() && is_depth_frame_arrived){
                         ROS_DEBUG("Publishing registered depth image");
                         publishRegisteredDepth(t);
                     }
