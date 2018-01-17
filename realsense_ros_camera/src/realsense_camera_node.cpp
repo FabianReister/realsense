@@ -76,7 +76,7 @@ namespace realsense_ros_camera
             // Types for depth stream
             _format[DEPTH] = RS2_FORMAT_Z16;   // libRS type
             _image_format[DEPTH] = CV_16UC1;    // CVBridge type
-            _encoding[DEPTH] = sensor_msgs::image_encodings::TYPE_16UC1; // ROS message type
+            _encoding[DEPTH] = "mono16"; // ROS message type
             _unit_step_size[DEPTH] = sizeof(uint16_t); // sensor_msgs::ImagePtr row step size
             _stream_name[DEPTH] = "depth";
 
@@ -499,6 +499,7 @@ namespace realsense_ros_camera
                         {
                             auto depth_sensor = sens->as<rs2::depth_sensor>();
                             _depth_scale_meters = depth_sensor.get_depth_scale();
+                            ROS_INFO_STREAM("Depth scale is " << _depth_scale_meters);
                         }
 
                         if (_sync_frames)
@@ -783,8 +784,8 @@ namespace realsense_ros_camera
                 b2c_msg.header.stamp = transform_ts_;
                 b2c_msg.header.frame_id = _base_frame_id;
                 b2c_msg.child_frame_id = _frame_id[COLOR];
-                b2c_msg.transform.translation.x = _depth2color_extrinsics.translation[2];
-                b2c_msg.transform.translation.y = -_depth2color_extrinsics.translation[0];
+                b2c_msg.transform.translation.x = -_depth2color_extrinsics.translation[2];
+                b2c_msg.transform.translation.y = _depth2color_extrinsics.translation[0];
                 b2c_msg.transform.translation.z = -_depth2color_extrinsics.translation[1];
                 b2c_msg.transform.rotation.x = q.x();
                 b2c_msg.transform.rotation.y = q.y();
