@@ -784,9 +784,9 @@ namespace realsense_ros_camera
                 b2c_msg.header.stamp = transform_ts_;
                 b2c_msg.header.frame_id = _base_frame_id;
                 b2c_msg.child_frame_id = _frame_id[COLOR];
-                b2c_msg.transform.translation.x = -_depth2color_extrinsics.translation[2];
+                b2c_msg.transform.translation.x = -_depth2color_extrinsics.translation[1];
                 b2c_msg.transform.translation.y = _depth2color_extrinsics.translation[0];
-                b2c_msg.transform.translation.z = -_depth2color_extrinsics.translation[1];
+                b2c_msg.transform.translation.z = _depth2color_extrinsics.translation[2];
                 b2c_msg.transform.rotation.x = q.x();
                 b2c_msg.transform.rotation.y = q.y();
                 b2c_msg.transform.rotation.z = q.z();
