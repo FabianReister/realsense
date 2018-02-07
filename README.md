@@ -1,6 +1,9 @@
 # ROS Wrapper for Intel&reg; RealSense&trade; Devices
 These are packages for using Intel RealSense cameras (D400 series and the SR300) with ROS.
 
+Tested with librealsense v2.9.1
+
+
 ## Installation Instructions
 
 The following instructions support ROS Indigo, on **Ubuntu 14.04**, and ROS Kinetic, on **Ubutnu 16.04**.
