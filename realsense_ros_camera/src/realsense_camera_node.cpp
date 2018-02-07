@@ -914,6 +914,7 @@ namespace realsense_ros_camera
           float depth_point[3], color_point[3], color_pixel[2], scaled_depth;
 
           // Fill the depth image fields
+          #pragma omp parallel for schedule(dynamic) default(shared)
           for (int y = 0; y < depth_intrinsics.height; ++y) {
             for (int x = 0; x < depth_intrinsics.width; ++x, ++image_depth16) {
               scaled_depth =
